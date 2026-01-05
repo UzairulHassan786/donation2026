@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Nonprofit } from '@/context/DonationContext';
 
 export type Category = 
@@ -37,19 +38,18 @@ export function useNonprofits(): UseNonprofitsResult {
       const nteeCodes = CATEGORY_NTEE_CODES[category];
       const allNonprofits: Nonprofit[] = [];
 
-      // Fetch for each NTEE code in the category
+      // Fetch for each NTEE code in the category using edge function
       for (const nteeCode of nteeCodes) {
-        const url = `https://projects.propublica.org/nonprofits/api/v2/search.json?q=${zipCode}&ntee%5Bid%5D=${nteeCode}&page=0`;
+        const { data, error: fetchError } = await supabase.functions.invoke('search-nonprofits', {
+          body: { zipCode, nteeCode, page: 0 }
+        });
         
-        const response = await fetch(url);
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch nonprofits');
+        if (fetchError) {
+          console.error('Edge function error:', fetchError);
+          continue;
         }
 
-        const data = await response.json();
-        
-        if (data.organizations) {
+        if (data?.organizations) {
           allNonprofits.push(...data.organizations.map((org: any) => ({
             ein: org.ein,
             name: org.name,
@@ -66,6 +66,10 @@ export function useNonprofits(): UseNonprofitsResult {
       const uniqueNonprofits = Array.from(
         new Map(allNonprofits.map(np => [np.ein, np])).values()
       ).slice(0, 20);
+
+      if (uniqueNonprofits.length === 0) {
+        setError('No nonprofits found in this area. Try a different ZIP code or category.');
+      }
 
       setNonprofits(uniqueNonprofits);
     } catch (err) {
