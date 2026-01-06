@@ -1,15 +1,17 @@
 import { Nonprofit } from '@/context/DonationContext';
 import { NonprofitCard } from './NonprofitCard';
-import { Loader2, SearchX } from 'lucide-react';
+import { Loader2, SearchX, Info } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface NonprofitGridProps {
   nonprofits: Nonprofit[];
   loading: boolean;
   error: string | null;
   hasSearched: boolean;
+  isUsingDemoData?: boolean;
 }
 
-export function NonprofitGrid({ nonprofits, loading, error, hasSearched }: NonprofitGridProps) {
+export function NonprofitGrid({ nonprofits, loading, error, hasSearched, isUsingDemoData }: NonprofitGridProps) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
@@ -51,10 +53,20 @@ export function NonprofitGrid({ nonprofits, loading, error, hasSearched }: Nonpr
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {nonprofits.map((nonprofit, index) => (
-        <NonprofitCard key={nonprofit.ein} nonprofit={nonprofit} index={index} />
-      ))}
+    <div className="space-y-4">
+      {isUsingDemoData && (
+        <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+          <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <AlertDescription className="text-amber-800 dark:text-amber-200">
+            Showing demo data — the nonprofit database is temporarily unavailable. These are sample organizations for demonstration purposes.
+          </AlertDescription>
+        </Alert>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {nonprofits.map((nonprofit, index) => (
+          <NonprofitCard key={nonprofit.ein} nonprofit={nonprofit} index={index} />
+        ))}
+      </div>
     </div>
   );
 }

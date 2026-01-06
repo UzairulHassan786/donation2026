@@ -51,6 +51,7 @@ interface UseNonprofitsResult {
   nonprofits: Nonprofit[];
   loading: boolean;
   error: string | null;
+  isUsingDemoData: boolean;
   fetchNonprofits: (zipCode: string, category: Category, radius: number) => Promise<void>;
 }
 
@@ -58,9 +59,11 @@ export function useNonprofits(): UseNonprofitsResult {
   const [nonprofits, setNonprofits] = useState<Nonprofit[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isUsingDemoData, setIsUsingDemoData] = useState(false);
 
   const fetchNonprofits = useCallback(async (zipCode: string, category: Category, radius: number) => {
     setLoading(true);
+    setIsUsingDemoData(false);
     setError(null);
 
     try {
@@ -106,6 +109,7 @@ export function useNonprofits(): UseNonprofitsResult {
       if (!apiAvailable && uniqueNonprofits.length === 0) {
         console.log('Using demo data - upstream API unavailable');
         setNonprofits(DEMO_NONPROFITS[category]);
+        setIsUsingDemoData(true);
         return;
       }
 
@@ -114,10 +118,11 @@ export function useNonprofits(): UseNonprofitsResult {
       console.error('Fetch error:', err);
       // Fallback to demo data on error
       setNonprofits(DEMO_NONPROFITS[category]);
+      setIsUsingDemoData(true);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  return { nonprofits, loading, error, fetchNonprofits };
+  return { nonprofits, loading, error, isUsingDemoData, fetchNonprofits };
 }
