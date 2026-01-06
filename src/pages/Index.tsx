@@ -12,7 +12,7 @@ function DonationPlatform() {
   const [hasSearched, setHasSearched] = useState(false);
   const [activeCategory, setActiveCategory] = useState<Category>('animal');
   const [searchParams, setSearchParams] = useState<{ zipCode: string; radius: number } | null>(null);
-  const { nonprofits, loading, error, fetchNonprofits } = useNonprofits();
+  const { nonprofits, loading, error, isUsingDemoData, fetchNonprofits } = useNonprofits();
 
   const handleSearch = useCallback((zipCode: string, radius: number) => {
     setSearchParams({ zipCode, radius });
@@ -50,6 +50,7 @@ function DonationPlatform() {
             loading={loading}
             error={error}
             hasSearched={hasSearched}
+            isUsingDemoData={isUsingDemoData}
           />
         </section>
       </main>
