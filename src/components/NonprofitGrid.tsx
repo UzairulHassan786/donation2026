@@ -54,14 +54,6 @@ export function NonprofitGrid({ nonprofits, loading, error, hasSearched, isUsing
 
   return (
     <div className="space-y-4">
-      {isUsingDemoData && (
-        <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
-          <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-          <AlertDescription className="text-amber-800 dark:text-amber-200">
-            Showing demo data — the nonprofit database is temporarily unavailable. These are sample organizations for demonstration purposes.
-          </AlertDescription>
-        </Alert>
-      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {nonprofits.map((nonprofit, index) => (
           <NonprofitCard key={nonprofit.ein} nonprofit={nonprofit} index={index} />
