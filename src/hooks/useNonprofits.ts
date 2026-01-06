@@ -1,8 +1,7 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Nonprofit } from '@/context/DonationContext';
 
-export type Category = 
+export type Category =
   | 'animal'
   | 'education'
   | 'human'
@@ -18,7 +17,7 @@ const CATEGORY_NTEE_CODES: Record<Category, string[]> = {
   arts: ['A'],
 };
 
-// Demo data for when the upstream API is unavailable
+// Demo data fallback
 const DEMO_NONPROFITS: Record<Category, Nonprofit[]> = {
   animal: [
     { ein: '13-1740011', name: 'American Society for Prevention of Cruelty to Animals', city: 'New York', state: 'NY', ntee_code: 'D20', income_amount: 250000000 },
@@ -52,7 +51,11 @@ interface UseNonprofitsResult {
   loading: boolean;
   error: string | null;
   isUsingDemoData: boolean;
-  fetchNonprofits: (zipCode: string, category: Category, radius: number) => Promise<void>;
+  fetchNonprofits: (
+    zipCode: string,
+    category: Category,
+    radius: number
+  ) => Promise<void>;
 }
 
 export function useNonprofits(): UseNonprofitsResult {
@@ -61,68 +64,68 @@ export function useNonprofits(): UseNonprofitsResult {
   const [error, setError] = useState<string | null>(null);
   const [isUsingDemoData, setIsUsingDemoData] = useState(false);
 
-  const fetchNonprofits = useCallback(async (zipCode: string, category: Category, radius: number) => {
-    setLoading(true);
-    setIsUsingDemoData(false);
-    setError(null);
+  const fetchNonprofits = useCallback(
+    async (zipCode: string, category: Category, radius: number) => {
+      setLoading(true);
+      setError(null);
+      setIsUsingDemoData(false);
 
-    try {
-      const nteeCodes = CATEGORY_NTEE_CODES[category];
-      const allNonprofits: Nonprofit[] = [];
-      let apiAvailable = false;
+      try {
+        const nteeCodes = CATEGORY_NTEE_CODES[category];
+        const allNonprofits: Nonprofit[] = [];
 
-      // Fetch for each NTEE code in the category using edge function
-      for (const nteeCode of nteeCodes) {
-        const { data, error: fetchError } = await supabase.functions.invoke('search-nonprofits', {
-          body: { zipCode, nteeCode, page: 0 }
-        });
-        
-        if (fetchError) {
-          console.error('Edge function error:', fetchError);
-          continue;
+        for (const nteeCode of nteeCodes) {
+          const res = await fetch(
+            `/api/nonprofits?zip=${zipCode}&ntee=${nteeCode}&radius=${radius}&page=0`
+          );
+
+          if (!res.ok) continue;
+
+          const data = await res.json();
+
+          if (data?.organizations?.length) {
+            allNonprofits.push(
+              ...data.organizations.map((org: any) => ({
+                ein: org.ein,
+                name: org.name,
+                city: org.city,
+                state: org.state,
+                ntee_code: org.ntee_code,
+                income_amount: org.income_amount,
+                asset_amount: org.asset_amount,
+              }))
+            );
+          }
         }
 
-        // Check if upstream API was available
-        if (!data?.upstreamStatus || data.upstreamStatus === 200) {
-          apiAvailable = true;
+        const uniqueNonprofits = Array.from(
+          new Map(allNonprofits.map(np => [np.ein, np])).values()
+        ).slice(0, 20);
+
+        if (!uniqueNonprofits.length) {
+          setNonprofits(DEMO_NONPROFITS[category]);
+          setIsUsingDemoData(true);
+          return;
         }
 
-        if (data?.organizations?.length > 0) {
-          allNonprofits.push(...data.organizations.map((org: any) => ({
-            ein: org.ein,
-            name: org.name,
-            city: org.city,
-            state: org.state,
-            ntee_code: org.ntee_code,
-            income_amount: org.income_amount,
-            asset_amount: org.asset_amount,
-          })));
-        }
-      }
-
-      // Remove duplicates and limit results
-      const uniqueNonprofits = Array.from(
-        new Map(allNonprofits.map(np => [np.ein, np])).values()
-      ).slice(0, 20);
-
-      // If API is unavailable (500 errors), use demo data
-      if (!apiAvailable && uniqueNonprofits.length === 0) {
-        console.log('Using demo data - upstream API unavailable');
+        setNonprofits(uniqueNonprofits);
+      } catch (err) {
+        console.error(err);
         setNonprofits(DEMO_NONPROFITS[category]);
         setIsUsingDemoData(true);
-        return;
+        setError('Failed to load live nonprofit data');
+      } finally {
+        setLoading(false);
       }
+    },
+    []
+  );
 
-      setNonprofits(uniqueNonprofits);
-    } catch (err) {
-      console.error('Fetch error:', err);
-      // Fallback to demo data on error
-      setNonprofits(DEMO_NONPROFITS[category]);
-      setIsUsingDemoData(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  return { nonprofits, loading, error, isUsingDemoData, fetchNonprofits };
+  return {
+    nonprofits,
+    loading,
+    error,
+    isUsingDemoData,
+    fetchNonprofits,
+  };
 }
