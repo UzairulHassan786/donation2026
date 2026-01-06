@@ -70,31 +70,49 @@ export function useNonprofits(): UseNonprofitsResult {
       setError(null);
       setIsUsingDemoData(false);
 
+      // Helper to pick the first array in API response
+      const extractOrganizations = (data: any): any[] => {
+        if (!data || typeof data !== 'object') return [];
+        const possibleKeys = ['organizations', 'results', 'data', 'items'];
+        for (const key of possibleKeys) {
+          if (Array.isArray(data[key])) return data[key];
+        }
+        return Array.isArray(data) ? data : [];
+      };
+
       try {
         const nteeCodes = CATEGORY_NTEE_CODES[category];
         const allNonprofits: Nonprofit[] = [];
 
         for (const nteeCode of nteeCodes) {
-          const res = await fetch(
-            `/api/nonprofits?zip=${zipCode}&ntee=${nteeCode}&radius=${radius}&page=0`
-          );
-
-          if (!res.ok) continue;
-
-          const data = await res.json();
-
-          if (data?.organizations?.length) {
-            allNonprofits.push(
-              ...data.organizations.map((org: any) => ({
-                ein: org.ein,
-                name: org.name,
-                city: org.city,
-                state: org.state,
-                ntee_code: org.ntee_code,
-                income_amount: org.income_amount,
-                asset_amount: org.asset_amount,
-              }))
+          try {
+            const res = await fetch(
+              `/api/nonprofits?zip=${zipCode}&ntee=${nteeCode}&radius=${radius}&page=0`
             );
+
+            if (!res.ok) {
+              console.warn(`API call failed for NTEE code: ${nteeCode}`);
+              continue;
+            }
+
+            const data = await res.json();
+            const orgs = extractOrganizations(data);
+
+            if (orgs.length) {
+              allNonprofits.push(
+                ...orgs.map((org: any) => ({
+                  ein: org.ein,
+                  name: org.name,
+                  city: org.city,
+                  state: org.state,
+                  ntee_code: org.ntee_code,
+                  income_amount: org.income_amount,
+                  asset_amount: org.asset_amount,
+                }))
+              );
+            }
+          } catch (innerErr) {
+            console.error(`Failed fetching NTEE code ${nteeCode}:`, innerErr);
           }
         }
 
@@ -103,14 +121,14 @@ export function useNonprofits(): UseNonprofitsResult {
         ).slice(0, 20);
 
         if (!uniqueNonprofits.length) {
+          console.log('No live nonprofits found, using demo data');
           setNonprofits(DEMO_NONPROFITS[category]);
           setIsUsingDemoData(true);
-          return;
+        } else {
+          setNonprofits(uniqueNonprofits);
         }
-
-        setNonprofits(uniqueNonprofits);
       } catch (err) {
-        console.error(err);
+        console.error('Unexpected error fetching nonprofits:', err);
         setNonprofits(DEMO_NONPROFITS[category]);
         setIsUsingDemoData(true);
         setError('Failed to load live nonprofit data');
