@@ -31,8 +31,22 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      console.error(`ProPublica API error: ${response.status}`);
-      throw new Error(`ProPublica API returned ${response.status}`);
+      const upstreamBody = await response.text().catch(() => '');
+      console.error(`ProPublica API error: ${response.status} ${upstreamBody}`);
+
+      // Don't fail the whole function for upstream instability; return an empty result
+      // so the frontend can show a friendly "No nonprofits found" message.
+      return new Response(
+        JSON.stringify({
+          organizations: [],
+          upstreamStatus: response.status,
+          upstreamBody: upstreamBody?.slice(0, 500) || null,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const data = await response.json();
@@ -44,10 +58,12 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error fetching nonprofits:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch nonprofits';
+
+    // Return a successful response with empty results to avoid surfacing a hard 500 in the UI.
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ organizations: [], error: errorMessage }),
       {
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
